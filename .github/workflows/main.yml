@@ -1,30 +1,67 @@
-name: ebay-bot
+name: ebay-bot-overnight
 
   on:
-    schedule:
-      - cron: "15 */3 * * *"
     workflow_dispatch:
+      inputs:
+        hours:
+          description: "How many hours to run"
+          required: true
+          default: "8"
+        interval_minutes:
+          description: "Minutes between scans"
+          required: true
+          default: "20"  # safe frequent default
 
   permissions:
     contents: write
 
   jobs:
-    run:
+    overnight:
       runs-on: ubuntu-latest
+      timeout-minutes: 540
       steps:
         - uses: actions/checkout@v4
         - uses: actions/setup-python@v5
           with:
             python-version: "3.11"
-        - name: Run bot
+
+        - name: Overnight scan loop
           env:
             EBAY_APP_TOKEN: ${{ secrets.EBAY_APP_TOKEN }}
             EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
             EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
             OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-            ENABLE_LLM: "false"
-          run: python3 main.py
-        - name: Commit results
+            ENABLE_LLM: "true"
+            HOURS: ${{ github.event.inputs.hours }}
+            INTERVAL_MINUTES: ${{ github.event.inputs.interval_minutes }}
+          run: |
+            set -euo pipefail
+            hours="${HOURS:-8}"
+            interval="${INTERVAL_MINUTES:-20}"
+
+            # hard safety floor
+            if [ "$interval" -lt 15 ]; then
+              echo "Interval too low; forcing 15 minutes for safety."
+              interval=15
+            fi
+
+            runs=$(( (hours * 60) / interval ))
+            if [ "$runs" -lt 1 ]; then
+              runs=1
+            fi
+
+            echo "Running $runs scans over ~$hours hours (every $interval min)"
+            i=1
+            while [ "$i" -le "$runs" ]; do
+              echo "=== Scan $i/$runs at $(date -u '+%Y-%m-%d %H:%M:%S UTC') ==="
+              python3 main.py || true
+              if [ "$i" -lt "$runs" ]; then
+                sleep $(( interval * 60 ))
+              fi
+              i=$(( i + 1 ))
+            done
+
+        - name: Commit overnight results
           run: |
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -33,5 +70,5 @@ name: ebay-bot
                 git add "$f"
               fi
             done
-            git diff --cached --quiet || git commit -m "bot: update scan results"
+            git diff --cached --quiet || git commit -m "bot: overnight scan update"
             git push
