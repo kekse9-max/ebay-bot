@@ -10,7 +10,7 @@ name: ebay-bot-overnight
         interval_minutes:
           description: "Minutes between scans"
           required: true
-          default: "20"  # safe frequent default
+          default: "20"
 
   permissions:
     contents: write
@@ -39,7 +39,6 @@ name: ebay-bot-overnight
             hours="${HOURS:-8}"
             interval="${INTERVAL_MINUTES:-20}"
 
-            # hard safety floor
             if [ "$interval" -lt 15 ]; then
               echo "Interval too low; forcing 15 minutes for safety."
               interval=15
