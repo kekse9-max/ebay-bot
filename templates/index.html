@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>eBay Elden-Ring Checker</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="hero">
+        <h1>💻🖥️ eBay Elden-Ring Checker</h1>
+        <p class="subtitle">
+          100% kostenlos: Finde <strong>{{ type_label }}</strong> bis <strong>{{ max_price }}€</strong> und prüfe,
+          ob Elden Ring voraussichtlich spielbar ist.
+        </p>
+      </header>
+
+      <nav class="tabs" aria-label="Suchtyp">
+        <a class="tab {% if item_type == 'laptop' %}active{% endif %}" href="/?item_type=laptop&max_price={{ max_price }}&evaluator={{ requested_evaluator }}&sort_by={{ sort_by }}&layout={{ layout }}">Laptops</a>
+        <a class="tab {% if item_type == 'pc' %}active{% endif %}" href="/?item_type=pc&max_price={{ max_price }}&evaluator={{ requested_evaluator }}&sort_by={{ sort_by }}&layout={{ layout }}">PCs</a>
+      </nav>
+
+      <form method="get" class="controls">
+        <input type="hidden" name="item_type" value="{{ item_type }}" />
+
+        <label for="max_price">Maximalpreis (€)</label>
+        <input id="max_price" name="max_price" type="number" min="50" max="1000" value="{{ max_price }}" />
+
+        <label for="evaluator">Prüfmodus</label>
+        <select id="evaluator" name="evaluator">
+          <option value="auto" {% if requested_evaluator == 'auto' %}selected{% endif %}>Auto (Ollama falls verfügbar)</option>
+          <option value="ollama" {% if requested_evaluator == 'ollama' %}selected{% endif %}>Nur Ollama (lokales LLM)</option>
+          <option value="heuristic" {% if requested_evaluator == 'heuristic' %}selected{% endif %}>Nur Heuristik</option>
+        </select>
+
+        <label for="sort_by">Sortierung</label>
+        <select id="sort_by" name="sort_by">
+          <option value="best" {% if sort_by == 'best' %}selected{% endif %}>Beste zuerst (Gut → Schlecht)</option>
+          <option value="price_asc" {% if sort_by == 'price_asc' %}selected{% endif %}>Preis aufsteigend</option>
+          <option value="price_desc" {% if sort_by == 'price_desc' %}selected{% endif %}>Preis absteigend</option>
+        </select>
+
+        <label for="layout">Ansicht</label>
+        <select id="layout" name="layout">
+          <option value="grid" {% if layout == 'grid' %}selected{% endif %}>Karten</option>
+          <option value="compact" {% if layout == 'compact' %}selected{% endif %}>Kompakt</option>
+        </select>
+
+        <button type="submit">Anwenden</button>
+      </form>
+
+      <section class="notice">
+        <p>✅ Aktiver Bewertungsmodus: <strong>{{ evaluator_mode }}</strong>.</p>
+        <p>🔎 Sortierung: <strong>{% if sort_by == 'best' %}Gut nach Schlecht{% elif sort_by == 'price_asc' %}Preis aufsteigend{% else %}Preis absteigend{% endif %}</strong>.</p>
+        {% if using_mock %}<p>ℹ️ Kein eBay-Token gesetzt (`EBAY_BEARER_TOKEN`) – es werden Demo-Daten angezeigt.</p>{% endif %}
+      </section>
+
+      <section class="stats">
+        <article><span>{{ counts.geeignet }}</span> geeignet</article>
+        <article><span>{{ counts.bedingt }}</span> bedingt geeignet</article>
+        <article><span>{{ counts.ungeeignet }}</span> ungeeignet</article>
+      </section>
+
+      <section>
+        <h2 class="section-title">Ergebnisse für {{ type_label }}</h2>
+        <div class="grid {% if layout == 'compact' %}compact{% endif %}">
+          {% for offer in offers %}
+          <article class="card {{ offer.verdict|replace(' ', '-') }}">
+            <div class="card-top">
+              <h3>{{ offer.title }}</h3>
+              <span class="confidence">{{ offer.confidence }}%</span>
+            </div>
+            <p class="price">{{ offer.price }} {{ offer.currency }}</p>
+            <p><strong>Zustand:</strong> {{ offer.condition }} · <strong>Land:</strong> {{ offer.location }}</p>
+            <p>
+              <strong>Bewertung:</strong>
+              <span class="badge">{{ offer.verdict }}</span>
+            </p>
+            <p class="reason">{{ offer.reason }}</p>
+            <a class="offer-link" href="{{ offer.item_url }}" target="_blank" rel="noopener noreferrer">Zum Angebot</a>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
